@@ -98,7 +98,8 @@ message NetParameter {
 // NOTE
 // Update the next available ID when you add a new SolverParameter field.
 //
-// SolverParameter next available ID: 41 (last added: type)
+//// SolverParameter next available ID: 41 (last added: type)
+// SolverParameter next available ID: 42 (last added: failure_pattern)
 message SolverParameter {
   //////////////////////////////////////////////////////////////////////////////
   // Specifying the train and test networks
@@ -239,6 +240,19 @@ message SolverParameter {
   }
   // DEPRECATED: use type instead of solver_type
   optional SolverType solver_type = 30 [default = SGD];
+
+  // Simlutate failure pattern on training
+  optional FailurePatternParameter failure_pattern = 41;
+}
+
+// A message for failure pattern of cells
+message FailurePatternParameter {
+  optional string type = 1 [default = 'gaussian']; // 'none', 'gaussian', 'uniform'
+  optional float mean = 2 [default = 10000]; // the mean value of failure iterations, in Gaussian failer
+  optional float std = 3 [default = 100]; // the std value of failure iterations, in Gaussian failer
+
+  optional float min = 4 [default = 1000]; // the min value of failure iterations, in uniform failer
+  optional float max = 5 [default = 100000]; // the max value of failure iterations, in uniform failer
 }
 
 // A message that stores the solver snapshots

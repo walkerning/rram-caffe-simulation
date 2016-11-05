@@ -11,6 +11,24 @@
 
 namespace caffe {
 
+template <typename Dtype>
+void Solver<Dtype>::InitFailurePattern(const FailurePatternParameter& failure_param) {
+  const std::string& type = failure_param.type();
+  if (type == "none") {
+    return;
+  } else {
+    fmaker_ = FailureMaker<Dtype>::CreateMaker(failure_param, this->net_);
+  }
+  return;  
+}
+
+template <typename Dtype>
+void Solver<Dtype>::Fail(int iter) {
+  if (fmaker_) {
+    fmaker_->Fail(iter);
+  }
+}
+
 template<typename Dtype>
 void Solver<Dtype>::SetActionFunction(ActionCallback func) {
   action_request_function_ = func;
@@ -103,6 +121,9 @@ void Solver<Dtype>::InitTrainNet() {
   net_param.mutable_state()->CopyFrom(net_state);
   if (Caffe::root_solver()) {
     net_.reset(new Net<Dtype>(net_param));
+    if (param_.has_failure_pattern()) {
+      InitFailurePattern(param_.failure_pattern());
+    }
   } else {
     net_.reset(new Net<Dtype>(net_param, root_solver_->net_.get()));
   }
@@ -216,11 +237,16 @@ void Solver<Dtype>::Step(int iters) {
     }
     const bool display = param_.display() && iter_ % param_.display() == 0;
     net_->set_debug_info(display && param_.debug_info());
+    
+    // Simulate failure of weights
+    Fail(iter_);
+
     // accumulate the loss and gradient
     Dtype loss = 0;
     for (int i = 0; i < param_.iter_size(); ++i) {
       loss += net_->ForwardBackward();
     }
+    
     loss /= param_.iter_size();
     // average the loss across iterations for smoothed reporting
     UpdateSmoothedLoss(loss, start_iter, average_loss);

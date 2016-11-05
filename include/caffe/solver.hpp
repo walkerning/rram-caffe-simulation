@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "caffe/failure_maker.hpp"
 #include "caffe/net.hpp"
 #include "caffe/solver_factory.hpp"
 
@@ -95,6 +96,8 @@ class Solver {
   virtual inline const char* type() const { return ""; }
 
  protected:
+  void InitFailurePattern(const FailurePatternParameter& failure_param);
+  void Fail(int iter);
   // Make and apply the update value for the current iteration.
   virtual void ApplyUpdate() = 0;
   string SnapshotFilename(const string extension);
@@ -128,6 +131,9 @@ class Solver {
 
   // True iff a request to stop early was received.
   bool requested_early_exit_;
+
+  // failure maker
+  shared_ptr<FailureMaker<Dtype> > fmaker_;
 
   DISABLE_COPY_AND_ASSIGN(Solver);
 };
