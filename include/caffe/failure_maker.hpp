@@ -41,6 +41,13 @@ namespace caffe {
     explicit GaussianFailureMaker(const FailurePatternParameter& param, const shared_ptr<Net<Dtype> > net);
 
     virtual void Fail(int iter);
+    virtual ~GaussianFailureMaker() {
+      delete(gen_);
+      delete(d_);
+      for (int i = 0; i < fail_iterations_.size(); i++) {
+	delete(fail_iterations_[i]);
+      }
+    }
 
   protected:
     inline int random_collapse() {

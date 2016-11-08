@@ -5,7 +5,7 @@ namespace caffe {
   GaussianFailureMaker<Dtype>::GaussianFailureMaker(const FailurePatternParameter& param, const shared_ptr<Net<Dtype> > net):
     FailureMaker<Dtype>(param){
     this->net_ = net;
-    fail_iterations_.resize(this->net_->learnable_params.size());
+    //fail_iterations_.resize(this->net_->learnable_params().size());
     Blob<Dtype>* iters_p;
     for (int i = 0; i < this->net_->learnable_params().size(); i++) {
       Blob<Dtype>* learnable_param = this->net_->learnable_params()[i];
@@ -19,24 +19,39 @@ namespace caffe {
     }
     std::random_device rd;
     gen_ = new  std::mt19937(rd());
-    d_ = std::discrete_distribution<int>({10, 20, 10});
+    d_ = new std::discrete_distribution<int>({10, 20, 10});
   }
-
+  
   template <typename Dtype>
   void GaussianFailureMaker<Dtype>::Fail(int iter) {
+    Dtype epsilon = 1e-15;
     for (int i = 0; i < fail_iterations_.size(); i++) {
-      const Dtype* iters_p = fail_iterations_[i]->cpu_data();
+      // remain iterations
+      Dtype* iters_p = fail_iterations_[i]->mutable_cpu_data();
+      // the fail value of every failed cell, use cpu_diff to store these info
       Dtype* value_p = fail_iterations_[i]->mutable_cpu_diff();
-      int count = fail_iterations_->count();
+      int count = fail_iterations_[i]->count();
+
       for (int j = 0; j < count; j++) {
-	if (iter > iters_p[j]) {
-	  if (value_p[j] == -2) {
-	    value_p[j] = random_collapse();
+	if (iters_p[j] <= 0) {
+	  // this cell is broken
+	  this->net_->learnable_params()[i]->mutable_cpu_data()[j] = value_p[j];
+	} else {
+	  // strategy1: not update when gradient is too small
+	  if (fabs(this->net_->learnable_params()[i]->cpu_diff()[j]) < epsilon) {
+	    //this->net_->learnable_params()[i]->mutable_cpu_diff()[j] = 0;
+	    continue;
 	  }
-	  this->net_->learnable_params()[i]->mutable_cpu_data[j] = value_p[j];
+	  iters_p[j] -= 100; // batch size. FIXME: how to make this exp more general
+	  if (iters_p[j] <= 0) {
+	    value_p[j] = random_collapse();
+	    this->net_->learnable_params()[i]->mutable_cpu_data()[j] = value_p[j];
+	    LOG(INFO) << "failure to " << value_p[j];
+	  }
 	}
       }
     }
   }
-    
+  INSTANTIATE_CLASS(FailureMaker);
+  INSTANTIATE_CLASS(GaussianFailureMaker);
 }
