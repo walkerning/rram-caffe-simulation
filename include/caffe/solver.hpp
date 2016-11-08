@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "caffe/failure_maker.hpp"
+#include "caffe/strategy.hpp"
 #include "caffe/net.hpp"
 #include "caffe/solver_factory.hpp"
 
@@ -98,8 +99,10 @@ class Solver {
  protected:
   void InitFailurePattern(const FailurePatternParameter& failure_param);
   void Fail(int iter);
+  void ApplyStrategy();
   // Make and apply the update value for the current iteration.
   virtual void ApplyUpdate() = 0;
+  virtual void ComputeUpdate() {};
   string SnapshotFilename(const string extension);
   string SnapshotToBinaryProto();
   string SnapshotToHDF5();
@@ -134,6 +137,7 @@ class Solver {
 
   // failure maker
   shared_ptr<FailureMaker<Dtype> > fmaker_;
+  vector<shared_ptr<FailureStrategy<Dtype> > > strategys_;
 
   DISABLE_COPY_AND_ASSIGN(Solver);
 };

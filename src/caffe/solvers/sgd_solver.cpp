@@ -99,7 +99,7 @@ void SGDSolver<Dtype>::ClipGradients() {
 }
 
 template <typename Dtype>
-void SGDSolver<Dtype>::ApplyUpdate() {
+void SGDSolver<Dtype>::ComputeUpdate() {
   CHECK(Caffe::root_solver());
   Dtype rate = GetLearningRate();
   if (this->param_.display() && this->iter_ % this->param_.display() == 0) {
@@ -112,9 +112,13 @@ void SGDSolver<Dtype>::ApplyUpdate() {
     Regularize(param_id);
     ComputeUpdateValue(param_id, rate);
   }
-  this->net_->Update();
+  // this->net_->Update();
 }
 
+  template <typename Dtype>
+  void SGDSolver<Dtype>::ApplyUpdate() {
+    this->net_->Update();
+ }
 template <typename Dtype>
 void SGDSolver<Dtype>::Normalize(int param_id) {
   if (this->param_.iter_size() == 1) { return; }

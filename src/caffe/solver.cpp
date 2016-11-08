@@ -22,6 +22,16 @@ void Solver<Dtype>::InitFailurePattern(const FailurePatternParameter& failure_pa
   return;  
 }
 
+  template <typename Dtype>
+  void Solver<Dtype>::ApplyStrategy() {
+    if (!fmaker_) {
+      return;
+    }
+    for (int i = 0; i < strategys_.size(); i++) {
+      strategys_[i]->Apply();
+    }
+  }
+
 template <typename Dtype>
 void Solver<Dtype>::Fail(int iter) {
   if (fmaker_) {
@@ -124,9 +134,21 @@ void Solver<Dtype>::InitTrainNet() {
     if (param_.has_failure_pattern()) {
       InitFailurePattern(param_.failure_pattern());
     }
+    // init failure strategy
+    for (int i = 0; i < param_.failure_strategy_size(); i++) {
+      shared_ptr<FailureStrategy<Dtype> > ptr = FailureStrategy<Dtype>::CreateStrategy(param_.failure_strategy(i),
+										       fmaker_,
+										       net_);
+      if (!ptr) {
+	LOG(WARNING) << "No strategy named `" << param_.failure_strategy(i).type() << "` exists.";
+      }
+      LOG(INFO) << "Using strategy `" << ptr->type() << "` for handling failures.";
+      strategys_.push_back(ptr);
+    }
   } else {
     net_.reset(new Net<Dtype>(net_param, root_solver_->net_.get()));
   }
+  
 }
 
 template <typename Dtype>
@@ -237,9 +259,6 @@ void Solver<Dtype>::Step(int iters) {
     }
     const bool display = param_.display() && iter_ % param_.display() == 0;
     net_->set_debug_info(display && param_.debug_info());
-    
-    // Simulate failure of weights
-    Fail(iter_);
 
     // accumulate the loss and gradient
     Dtype loss = 0;
@@ -276,8 +295,13 @@ void Solver<Dtype>::Step(int iters) {
     for (int i = 0; i < callbacks_.size(); ++i) {
       callbacks_[i]->on_gradients_ready();
     }
+    //ApplyUpdate();
+    ComputeUpdate();
+    // Strategy according to weights, and failer
+    ApplyStrategy();
+    // Simulate failure of weights
     ApplyUpdate();
-
+    Fail(iter_);
     // Increment the internal iter_ counter -- its value should always indicate
     // the number of times the weights have been updated.
     ++iter_;

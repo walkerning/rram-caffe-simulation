@@ -243,6 +243,9 @@ message SolverParameter {
 
   // Simlutate failure pattern on training
   optional FailurePatternParameter failure_pattern = 41;
+
+  // Strategies to conquer failure
+  repeated FailureStrategyParameter failure_strategy = 42;
 }
 
 // A message for failure pattern of cells
@@ -255,6 +258,14 @@ message FailurePatternParameter {
   optional float max = 5 [default = 100000]; // the max value of failure iterations, in uniform failer
 }
 
+// A message for strategies to conquer failure
+message FailureStrategyParameter {
+  required string type = 1; // 'threshold', 'exchange'
+
+  // when the magnitude of weight gradient is under this threshold, 
+  // this weight gradient will be cleared and not updated.
+  optional float threshold = 2 [default = 0.001]; // for threshold strategy
+}
 // A message that stores the solver snapshots
 message SolverState {
   optional int32 iter = 1; // The current iteration
