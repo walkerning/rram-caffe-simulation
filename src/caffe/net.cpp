@@ -73,6 +73,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
   param_id_vecs_.resize(param.layer_size());
   top_id_vecs_.resize(param.layer_size());
   bottom_need_backward_.resize(param.layer_size());
+
   for (int layer_id = 0; layer_id < param.layer_size(); ++layer_id) {
     // For non-root solvers, whether this layer is shared from root_net_.
     bool share_from_root = !Caffe::root_solver()
@@ -281,6 +282,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
   ShareWeights();
   debug_info_ = param.debug_info();
   LOG_IF(INFO, Caffe::root_solver()) << "Network initialization done.";
+  //LOG(INFO) << "fc failure_learnable_params size: " << failure_learnable_params_.size();
 }
 
 template <typename Dtype>
@@ -477,6 +479,11 @@ void Net<Dtype>::AppendParam(const NetParameter& param, const int layer_id,
     }
     const int learnable_param_id = learnable_params_.size();
     learnable_params_.push_back(params_[net_param_id].get());
+    if (strcmp(layers_[layer_id]->type(), "InnerProduct") == 0) {
+      // only handle innerproduct in failure
+      LOG(INFO) << "add inner product param " << layer_id;
+      failure_learnable_params_.push_back(params_[net_param_id].get());
+    }
     learnable_param_ids_.push_back(learnable_param_id);
     has_params_lr_.push_back(param_spec->has_lr_mult());
     has_params_decay_.push_back(param_spec->has_decay_mult());

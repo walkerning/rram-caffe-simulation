@@ -51,7 +51,8 @@ namespace caffe {
 
   protected:
     inline int random_collapse() {
-      return (*d_)(*gen_) - 1;
+      //return (*d_)(*gen_) - 1;
+      return 0;
     }
 
   private:
