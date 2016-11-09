@@ -1,12 +1,16 @@
 import re
 import os
 import sys
+import argparse
 import numpy as np
 from matplotlib import pyplot as plt
 
-assert len(sys.argv) == 2
+parser = argparse.ArgumentParser()
+parser.add_argument("log", help="the log file")
+parser.add_argument("-n", "--no-plot", help="do not plot", action="store_true")
+args = parser.parse_args()
 
-with open(sys.argv[1], "r") as log_file:
+with open(args.log, "r") as log_file:
     content = log_file.read()
 
 test_interval_m = re.search("test_interval: (\d+)", content)
@@ -33,7 +37,7 @@ for data in zip(iter_indexes, acc_list, loss_list):
     print "{:<8}    {:<12}    {:<12}".format(*data)
 
 # plot the pic
-if os.environ.get("DISPLAY", None) is not None:
+if not args.no_plot and os.environ.get("DISPLAY", None) is not None:
     plt.figure().add_subplot(111).plot(iter_indexes, acc_list, "g")
     plt.figure().add_subplot(111).plot(iter_indexes, loss_list)
     plt.show()

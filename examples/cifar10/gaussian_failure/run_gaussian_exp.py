@@ -11,6 +11,10 @@ parser.add_argument("mean", type=float)
 parser.add_argument("std", type=float)
 parser.add_argument("device_id", type=int)
 parser.add_argument("-t", "--threshold", default=-1, type=float)
+parser.add_argument("--tag", help="make a tag as suffix", default="")
+parser.add_argument("--cpu", help="run on cpu", action="store_true")
+parser.add_argument("--prob", help="probability percentage for +-1 (integer: 0 ~ 100)", type=int, default=-1)
+parser.add_argument("-y", "--yes", help="no ask, just yes", action="store_true")
 args = parser.parse_args()
 
 # parsing command line
@@ -30,8 +34,8 @@ from caffe.proto import caffe_pb2
 from google.protobuf import text_format
 
 SOLVER_DIR = os.path.join(here, "solvers/")
-SOLVER_NAME = "solver_{mean}_{std}{strategy}.prototxt"
-SNAPSHOT_NAME = "snapshot_{mean}_{std}{strategy}"
+SOLVER_NAME = "solver_{mean}_{std}{strategy}" + args.tag + ".prototxt"
+SNAPSHOT_NAME = "snapshot_{mean}_{std}{strategy}" + args.tag
 TEMPLATE = "solvers/cifar10_vgg11_template.prototxt"
 
 message = caffe_pb2.SolverParameter()
@@ -48,7 +52,7 @@ snapshot_prefix = SNAPSHOT_NAME.format(mean=mean, std=std, strategy=strategy_suf
 if os.path.exists(snapshot_prefix):
     while 1:
         yes = raw_input("{} already exists, remove? (y/n): ".format(snapshot_prefix))
-        if yes.lower() in {"y", "yes"}:
+        if args.yes or yes.lower() in {"y", "yes"}:
             assert subprocess.check_call("rm -r {}".format(snapshot_prefix), shell=True) == 0
             break
         elif yes.lower() in {"n", "no"}:
@@ -60,6 +64,14 @@ message.snapshot_prefix = snapshot_prefix + "/"
 
 if args.threshold > 0:
     message.failure_strategy.extend([caffe_pb2.FailureStrategyParameter(type="threshold", threshold=args.threshold)])
+
+if args.cpu:
+    message.solver_mode = caffe_pb2.SolverParameter.CPU
+
+if args.prob >= 0:
+    assert args.prob < 50
+    message.failure_pattern.failure_prob.neg = message.failure_pattern.failure_prob.pos = args.prob
+    message.failure_pattern.failure_prob.zero = 100 - 2*args.prob
 
 solver_fname = os.path.join(SOLVER_DIR, SOLVER_NAME.format(mean=mean, std=std, strategy=strategy_suffix))
 

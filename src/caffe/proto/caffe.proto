@@ -256,6 +256,15 @@ message FailurePatternParameter {
 
   optional float min = 4 [default = 1000]; // the min value of failure iterations, in uniform failer
   optional float max = 5 [default = 100000]; // the max value of failure iterations, in uniform failer
+  
+  optional FailureProbParameter failure_prob = 6; // the failure probability of -1, 0, 1
+
+}
+
+message FailureProbParameter {
+  optional int32 neg = 1 [default=10];
+  optional int32 zero = 2 [default=20];
+  optional int32 pos = 3 [default=10];
 }
 
 // A message for strategies to conquer failure

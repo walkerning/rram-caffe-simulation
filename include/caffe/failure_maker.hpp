@@ -8,6 +8,9 @@
 #include <random>
 
 namespace caffe {
+  template <typename Dtype>
+  void failure_threshold(const int n, Dtype* values, Dtype split1, Dtype split2);
+
   // forward declaration
   template <typename Dtype>
   class GaussianFailureMaker;
@@ -61,24 +64,17 @@ namespace caffe {
 
     virtual void Fail_cpu(int iter);
     virtual ~GaussianFailureMaker() {
-      delete(gen_);
-      delete(d_);
       for (int i = 0; i < fail_iterations_.size(); i++) {
 	delete(fail_iterations_[i]);
       }
     }
 
-  protected:
-    inline int random_collapse() {
-      //return (*d_)(*gen_) - 1;
-      return 0;
-    }
-
   private:
-    std::mt19937* gen_;
-    std::discrete_distribution<int>* d_;
     vector<Blob<Dtype>* > fail_iterations_;
+
+    using FailureMaker<Dtype>::param_;
   };
+
 }
 
 #endif
