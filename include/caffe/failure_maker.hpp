@@ -26,7 +26,20 @@ namespace caffe {
       return ptr;
     }
 
-    virtual void Fail(int iter) {}
+    void Fail(int iter) {
+      switch (Caffe::mode()) {
+      case Caffe::CPU:
+	Fail_cpu(iter);
+	break;
+      case Caffe::GPU:
+	Fail_gpu(iter);
+	break;
+      }
+      return;
+    }
+
+    virtual void Fail_cpu(int iter)=0;
+    virtual void Fail_gpu(int iter)=0;
 
     virtual ~FailureMaker() {}
 
@@ -40,7 +53,13 @@ namespace caffe {
   public:
     explicit GaussianFailureMaker(const FailurePatternParameter& param, const shared_ptr<Net<Dtype> > net);
 
-    virtual void Fail(int iter);
+#ifdef CPU_ONLY
+    virtual void Fail_gpu(int iter) { NO_GPU; }
+#else
+    virtual void Fail_gpu(int iter);
+#endif
+
+    virtual void Fail_cpu(int iter);
     virtual ~GaussianFailureMaker() {
       delete(gen_);
       delete(d_);
