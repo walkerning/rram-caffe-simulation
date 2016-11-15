@@ -138,7 +138,8 @@ void Solver<Dtype>::InitTrainNet() {
     for (int i = 0; i < param_.failure_strategy_size(); i++) {
       shared_ptr<FailureStrategy<Dtype> > ptr = FailureStrategy<Dtype>::CreateStrategy(param_.failure_strategy(i),
 										       fmaker_,
-										       net_);
+										       net_,
+										       this);
       if (!ptr) {
 	LOG(WARNING) << "No strategy named `" << param_.failure_strategy(i).type() << "` exists.";
       }

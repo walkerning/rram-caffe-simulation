@@ -38,7 +38,7 @@ for data in zip(iter_indexes, acc_list, loss_list):
 
 # plot the pic
 if not args.no_plot and os.environ.get("DISPLAY", None) is not None:
-    plt.figure().add_subplot(111).plot(iter_indexes, acc_list, "g")
-    plt.figure().add_subplot(111).plot(iter_indexes, loss_list)
+    plt.figure(args.log + "_acc").add_subplot(111).plot(iter_indexes, acc_list, "g")
+    plt.figure(args.log + "_loss").add_subplot(111).plot(iter_indexes, loss_list)
     plt.show()
 

@@ -12,7 +12,7 @@ test_interval: 500
 # The learning rate policy
 lr_policy: "step"
 # The base learning rate, momentum and the weight decay of the network.
-base_lr: 0.01
+base_lr: 0.005
 gamma: 0.1
 stepsize: 10000
 momentum: 0.9

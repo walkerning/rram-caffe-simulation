@@ -53,7 +53,7 @@ namespace caffe {
 
   template <typename Dtype>
   void GaussianFailureMaker<Dtype>::Fail_cpu(int iter) {
-    Dtype epsilon = 1e-19;
+    Dtype epsilon = 1e-20;
     for (int i = 0; i < fail_iterations_.size(); i++) {
       // remain iterations
       Dtype* iters_p = fail_iterations_[i]->mutable_cpu_data();
