@@ -11,6 +11,7 @@ parser.add_argument("mean", type=float)
 parser.add_argument("std", type=float)
 parser.add_argument("device_id", type=int)
 parser.add_argument("-t", "--threshold", default=-1, type=float)
+parser.add_argument("-r", "--remapping", help="<prune_order_file>[,<period>[,<start>]]", default="")
 parser.add_argument("--tag", help="make a tag as suffix", default="")
 parser.add_argument("--cpu", help="run on cpu", action="store_true")
 parser.add_argument("--prob", help="probability percentage for +-1 (integer: 0 ~ 100)", type=int, default=-1)
@@ -22,6 +23,7 @@ mean = args.mean
 std = args.std
 device_id = args.device_id
 strategy_suffix="_threshold_{}".format(args.threshold) if args.threshold > 0 else ""
+strategy_suffix+="_remapping_{}".format(args.remapping.split(",")[0]) if args.remapping else ""
 
 # handle some import/binary paths
 here = os.path.dirname(os.path.abspath(__file__))
@@ -51,7 +53,8 @@ snapshot_prefix = SNAPSHOT_NAME.format(mean=mean, std=std, strategy=strategy_suf
 
 if os.path.exists(snapshot_prefix):
     while 1:
-        yes = raw_input("{} already exists, remove? (y/n): ".format(snapshot_prefix))
+        if not args.yes:
+            yes = raw_input("{} already exists, remove? (y/n): ".format(snapshot_prefix))
         if args.yes or yes.lower() in {"y", "yes"}:
             assert subprocess.check_call("rm -r {}".format(snapshot_prefix), shell=True) == 0
             break
@@ -64,6 +67,16 @@ message.snapshot_prefix = snapshot_prefix + "/"
 
 if args.threshold > 0:
     message.failure_strategy.extend([caffe_pb2.FailureStrategyParameter(type="threshold", threshold=args.threshold)])
+
+if args.remapping:
+    stra = args.remapping.split(",")
+    strategy_param = caffe_pb2.FailureStrategyParameter(type="remapping",
+                                                        prune_order_file = stra[0])
+    if len(stra) > 1:
+        strategy_param.period = int(stra[1])
+    if len(stra) > 2:
+        strategy_param.start = int(stra[2])
+    message.failure_strategy.extend([strategy_param])
 
 if args.cpu:
     message.solver_mode = caffe_pb2.SolverParameter.CPU

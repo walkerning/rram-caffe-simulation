@@ -181,6 +181,9 @@ class Net {
   inline const vector<Blob<Dtype>*>& failure_learnable_params() const {
     return failure_learnable_params_;
   }
+  inline const vector<int>& failure_learnable_layer_ids() const {
+    return failure_learnable_layer_ids_;
+  }
   /// @brief returns the learnable parameter learning rate multipliers
   inline const vector<float>& params_lr() const { return params_lr_; }
   inline const vector<bool>& has_params_lr() const { return has_params_lr_; }
@@ -230,6 +233,7 @@ class Net {
   /// @brief return whether NetState state meets NetStateRule rule
   static bool StateMeetsRule(const NetState& state, const NetStateRule& rule,
       const string& layer_name);
+  vector<int> fc_params_ids_;
 
  protected:
   // Helpers for Init.
@@ -292,6 +296,7 @@ class Net {
   vector<shared_ptr<Blob<Dtype> > > params_;
   vector<Blob<Dtype>* > learnable_params_;
   vector<Blob<Dtype>* > failure_learnable_params_;
+  vector<int> failure_learnable_layer_ids_;
   /**
    * The mapping from params_ -> learnable_params_: we have
    * learnable_param_ids_.size() == params_.size(),

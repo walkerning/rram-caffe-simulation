@@ -269,11 +269,18 @@ message FailureProbParameter {
 
 // A message for strategies to conquer failure
 message FailureStrategyParameter {
-  required string type = 1; // 'threshold', 'exchange'
+  required string type = 1; // 'threshold', 'remapping'
 
   // when the magnitude of weight gradient is under this threshold, 
   // this weight gradient will be cleared and not updated.
   optional float threshold = 2 [default = 0.001]; // for threshold strategy
+
+  // After `start` batches, become using the remapping strategy
+  optional int32 start = 3 [default = 0]; // for remapping strategy
+  // After `peroid` batches, the remapping strategy will be applied once
+  optional int32 period = 4 [default = 100]; // for remapping strategy
+  // optional float prune_ratio = 5 [default = 0.5]; // for remapping strategy
+  optional string prune_order_file = 5;
 }
 // A message that stores the solver snapshots
 message SolverState {

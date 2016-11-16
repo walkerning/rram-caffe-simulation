@@ -479,11 +479,17 @@ void Net<Dtype>::AppendParam(const NetParameter& param, const int layer_id,
     }
     const int learnable_param_id = learnable_params_.size();
     learnable_params_.push_back(params_[net_param_id].get());
-    if (strcmp(layers_[layer_id]->type(), "InnerProduct") == 0) {
-      // only handle innerproduct in failure
-      LOG(INFO) << "add inner product param " << layer_id;
-      failure_learnable_params_.push_back(params_[net_param_id].get());
+    failure_learnable_params_.push_back(params_[net_param_id].get());
+    failure_learnable_layer_ids_.push_back(layer_id);
+    // ignore bias here
+    if (strcmp(layers_[layer_id]->type(), "InnerProduct") == 0 && params_[net_param_id].get()->shape().size() == 2) {
+      fc_params_ids_.push_back(failure_learnable_params_.size() - 1);
     }
+    // if (strcmp(layers_[layer_id]->type(), "InnerProduct") == 0) {
+    //   // only handle innerproduct in failure
+    //   LOG(INFO) << "add inner product param " << layer_id;
+    //   failure_learnable_params_.push_back(params_[net_param_id].get());
+    // }
     learnable_param_ids_.push_back(learnable_param_id);
     has_params_lr_.push_back(param_spec->has_lr_mult());
     has_params_decay_.push_back(param_spec->has_decay_mult());
