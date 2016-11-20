@@ -6,12 +6,15 @@ namespace caffe {
   template <typename Dtype>
   void ThresholdFailureStrategy<Dtype>::Apply() {
     const vector<Blob<Dtype>* >& net_weights = net_->failure_learnable_params();
+    int cleared = 0;
+    int whole_num = 0;
     for (int i = 0; i < net_weights.size(); i++) {
       // threshold for this param
       Dtype rate = net_->params_lr()[i] * dynamic_cast<SGDSolver<Dtype>* >(const_cast<Solver<Dtype>* >(solver_))->GetLearningRate();
       Dtype threshold = threshold_ * rate;
       Dtype* diff_data = net_weights[i]->mutable_cpu_diff();
       int count = net_weights[i]->count();
+      whole_num += count;
       for (int j = 0; j < count; j ++) {
 	// LOG(INFO) << "learning_rate: " << dynamic_cast<SGDSolver<Dtype>* >(const_cast<Solver<Dtype>* >(solver_))->GetLearningRate()
 	// 	  << " param_lr: " << net_->params_lr()[i]
@@ -19,24 +22,15 @@ namespace caffe {
 	// 	  << " diff/(learning_rate*param_lr):" << diff_data[j]/rate;
  	if (fabs(diff_data[j]) <= threshold) {
 	  //LOG(INFO) << "diff " << diff_data[j] << " less than threshold " << threshold_ << ". set to 0";
+	  cleared += 1;
 	  diff_data[j] = 0;
 	  //LOG(INFO) << "will set " << diff_data[j] << " to 0.";
 	}
       }
     }
+    // for get the ratio of threshold pruning
+    // LOG(INFO) << "threshold strategy set " << float(cleared)/whole_num << " diff to zero";
   }
-
-  // // 得到一个prune之后的flag blob
-  // template <typename Dtype>
-  // void GetPruneFlagMat(int id) {
-  //   // prune_ratio
-  //   Blob<Dtype>* weight_blob = net_->failure_learnable_params()[id];
-  //   const Dtype* weights = weight_blob->cpu_data();
-  //   weight_blob->count();
-  //   std::sort(data, data + size, std::greater<Dtype>());
-  //   net_->layer
-  // }
-
 
   template <typename Dtype>
   void RemappingFailureStrategy<Dtype>::GetFailFlagMat(Blob<Dtype>* failure_blob, shared_ptr<Blob<Dtype> > flag_mat_p) {
@@ -75,8 +69,10 @@ namespace caffe {
       const Dtype* output_flag = output_flag_blob->cpu_data();
       for (int j = 0; j < input_flag_blob->shape()[0]; j++) {
 	// calculate input and output zero weights number of j-th neuron in fc layer i
-	zero_nums.push_back(static_cast<int>(caffe_cpu_asum<Dtype>(last_layer_neurons, &input_flag[j * last_layer_neurons]) +
-				   caffe_cpu_strided_asum<Dtype>(next_layer_neurons, &output_flag[j], input_flag_blob->shape()[0])));
+	Dtype s = caffe_cpu_asum<Dtype>(last_layer_neurons, &input_flag[j * last_layer_neurons]) +
+	  caffe_cpu_strided_asum<Dtype>(next_layer_neurons, &output_flag[j], input_flag_blob->shape()[0]);
+	//LOG(INFO) << "sum of " << i << "-th fc layer, " << j << "-th neuron";
+	zero_nums.push_back(static_cast<int>(s));
       }
       // sort neuron index according to the zero nums
       // initialize original index locations
@@ -123,8 +119,8 @@ namespace caffe {
       }
       // rearrange the output weights
       Blob<Dtype>* output_weight_blob = net_->failure_learnable_params()[net_->fc_params_ids_[i]];
-      int output_layer_dim = output_weight_blob->shape()[1];
-      int layer_dim = output_weight_blob->shape()[0];
+      int output_layer_dim = output_weight_blob->shape()[0];
+      int layer_dim = output_weight_blob->shape()[1];
       remapped_weight.Reshape(output_weight_blob->shape());
       caffe_copy(remapped_weight.count(), output_weight_blob->cpu_data(), remapped_weight.mutable_cpu_data());
       caffe_copy(remapped_weight.count(), output_weight_blob->cpu_diff(), remapped_weight.mutable_cpu_diff());
