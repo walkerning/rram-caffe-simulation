@@ -281,6 +281,12 @@ message FailureStrategyParameter {
   optional int32 period = 4 [default = 100]; // for remapping strategy
   // optional float prune_ratio = 5 [default = 0.5]; // for remapping strategy
   optional string prune_order_file = 5;
+
+  // random select two neurons to switch for `switch_time` times
+  optional int32 switch_time = 6 [default = 100];
+  // the prune net file. 1(can be prunned) or 0 (cannot be prunned)
+  optional string prune_net_file = 7;
+  optional string prune_model_file = 8;
 }
 // A message that stores the solver snapshots
 message SolverState {

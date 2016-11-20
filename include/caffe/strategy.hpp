@@ -22,6 +22,9 @@ namespace caffe {
   class RemappingFailureStrategy;
 
   template <typename Dtype>
+  class GeneticFailureStrategy;
+
+  template <typename Dtype>
   class FailureStrategy {
   public:
     explicit FailureStrategy(const FailureStrategyParameter& param, const shared_ptr<FailureMaker<Dtype> > fmaker,
@@ -38,6 +41,8 @@ namespace caffe {
 	ptr.reset(new ThresholdFailureStrategy<Dtype>(param, fmaker, net, solver));
       } else if (type == "remapping") {
 	ptr.reset(new RemappingFailureStrategy<Dtype>(param, fmaker, net, solver));
+      } else if (type == "genetic") {
+	ptr.reset(new GeneticFailureStrategy<Dtype>(param, fmaker, net, solver));
       }
       return ptr;
     }
@@ -135,6 +140,46 @@ namespace caffe {
     //float prune_ratio_;
     vector<vector<int> > prune_orders_;
   };
+
+  template <typename Dtype>
+  class GeneticFailureStrategy: public FailureStrategy<Dtype> {
+  public:
+    explicit GeneticFailureStrategy(const FailureStrategyParameter& param, 
+				    const shared_ptr<FailureMaker<Dtype> > fmaker,
+				    const shared_ptr<Net<Dtype> > net,
+				    const Solver<Dtype>* solver): FailureStrategy<Dtype>(param, fmaker, net, solver) {
+      switch_time_ = param.switch_time();
+      CHECK_GT(switch_time_, 0) << "`switch_time_` must be postive!";
+      period_ = param_.period();
+      start_ = param_.start();
+      //prune_ratio_ = param_.prune_ratio();
+      CHECK_GT(period_, 0) << "`period` must be postive!";
+      CHECK_GE(start_, 0) << "`start` must be non-negative!";
+      times_ = 0;
+      
+      // read the prune_net prototxt
+      CHECK(param.has_prune_net_file()) << "genetic failure strategy must have a prune net file.";
+      CHECK(param.has_prune_model_file()) << "genetic failure strategy must have a prune model file.";
+      prune_net_ = new Net<Dtype>(param.prune_net_file(), caffe::TEST);
+      prune_net_->CopyTrainedLayersFrom(param.prune_model_file());
+    }
+
+    virtual inline const char* type() const { return "genetic"; }
+    virtual void Apply();
+    virtual ~GeneticFailureStrategy() {}
+    using FailureStrategy<Dtype>::net_;
+    using FailureStrategy<Dtype>::fmaker_;
+    using FailureStrategy<Dtype>::param_;
+    using FailureStrategy<Dtype>::solver_;
+
+  private:
+    int switch_time_;
+    int period_;
+    int start_;
+    int times_;
+    Net<Dtype>* prune_net_;
+  };
+
 }
 
 #endif

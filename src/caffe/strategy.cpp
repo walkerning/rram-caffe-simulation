@@ -51,7 +51,8 @@ namespace caffe {
     vector<shared_ptr<Blob<Dtype> > > flag_mat_vec;
     for (int i = 0; i < size; i++) {
       shared_ptr<Blob<Dtype> > flag_mat_p(new Blob<Dtype>()); // consist of 0 and 1, 1 if fail, 0 if not
-      Blob<Dtype>* failure_blob = net_->failure_learnable_params()[net_->fc_params_ids_[i]];
+      //Blob<Dtype>* failure_blob = net_->failure_learnable_params()[net_->fc_params_ids_[i]];
+      Blob<Dtype>* failure_blob = dynamic_cast<GaussianFailureMaker<Dtype>* >(fmaker_.get())->fail_iterations()[net_->fc_params_ids_[i]];
       flag_mat_p->Reshape(failure_blob->shape());
       caffe_set<Dtype>(flag_mat_p->count(), Dtype(0), flag_mat_p->mutable_cpu_data()); // initialized 0 
       GetFailFlagMat(failure_blob, flag_mat_p);
@@ -135,7 +136,117 @@ namespace caffe {
     }
   }
 
+  template <typename Dtype>
+  void GeneticFailureStrategy<Dtype>::Apply() {
+    ++times_;
+    if (times_ < start_ || (times_ - start_) % period_ != 0) {
+      return;
+    }
+    Dtype epsilon = 1e-20;
+    int size = net_->fc_params_ids_.size();
+    for (int i = 0; i < switch_time_; ) {
+      // random select two neurons
+      int layer_index = rand() % (size - 1) + 1;
+      Blob<Dtype>* input_weight_blob = net_->failure_learnable_params()[net_->fc_params_ids_[layer_index-1]];
+      int layer_dim = input_weight_blob->shape()[0];
+      int input_layer_dim = input_weight_blob->shape()[1];
+      int neuron_index1 = rand() % layer_dim;
+      int neuron_index2 = rand() % layer_dim;
+      if (neuron_index1 == neuron_index2) {
+	// the same neuron, continue
+	continue;
+      }
+      i++;
+      // 只算weight的距离
+      Blob<Dtype>* failure_blob = dynamic_cast<GaussianFailureMaker<Dtype>* >(fmaker_.get())->fail_iterations()[net_->fc_params_ids_[layer_index - 1]];
+      Blob<Dtype>* input_bias_blob = net_->failure_learnable_params()[net_->fc_params_ids_[layer_index-1] + 1];
+      const Dtype* input_fail_iters_p = failure_blob->cpu_data();
+      //const Dtype* input_fail_values_p = failure_blob->cpu_data();
+      
+      Blob<Dtype>* output_weight_blob = net_->failure_learnable_params()[net_->fc_params_ids_[layer_index]];
+      int output_layer_dim = output_weight_blob->shape()[0];
+
+      // failure blob
+      failure_blob = dynamic_cast<GaussianFailureMaker<Dtype>* >(fmaker_.get())->fail_iterations()[net_->fc_params_ids_[layer_index]];
+      const Dtype* output_fail_iters_p = failure_blob->cpu_data();
+      //const Dtype* output_fail_values_p = failure_blob->cpu_data()
+
+      const Dtype* prune_input = prune_net_->layers()[prune_net_->failure_learnable_layer_ids()[prune_net_->fc_params_ids_[layer_index-1]]]->blobs()[0]->cpu_data();
+      const Dtype* prune_output = prune_net_->layers()[prune_net_->failure_learnable_layer_ids()[prune_net_->fc_params_ids_[layer_index]]]->blobs()[0]->cpu_data();
+      int dist_before = 0;
+      int dist_after = 0;
+      // calculate the gain of switching these two neurons (assume ...)
+      for (int j = 0; j < input_layer_dim; j++) {
+	// FIXME: not consider +-1
+	if (prune_input[neuron_index1 * input_layer_dim + j] < epsilon && input_fail_iters_p[neuron_index1 * input_layer_dim + j] < 0) {
+	  dist_before += 1;
+	}
+	if (prune_input[neuron_index2 * input_layer_dim + j] < epsilon && input_fail_iters_p[neuron_index1 * input_layer_dim + j] < 0) {
+	  dist_after += 1;
+	}
+	if (prune_input[neuron_index2 * input_layer_dim + j] < epsilon && input_fail_iters_p[neuron_index2 * input_layer_dim + j] < 0) {
+	  dist_before += 1;
+	}
+	if (prune_input[neuron_index1 * input_layer_dim + j] < epsilon && input_fail_iters_p[neuron_index2 * input_layer_dim + j] < 0) {
+	  dist_after += 1;
+	}
+      }
+      for (int j = 0; j < output_layer_dim; j++) {
+	// FIXME: not consider +-1
+	if (prune_output[j * layer_dim + neuron_index1] < epsilon && output_fail_iters_p[j * layer_dim + neuron_index1] < 0) {
+	  dist_before += 1;
+	}
+	if (prune_output[j * layer_dim + neuron_index2] < epsilon && output_fail_iters_p[j * layer_dim + neuron_index1] < 0) {
+	  dist_after += 1;
+	}
+	if (prune_output[j * layer_dim + neuron_index2] < epsilon && output_fail_iters_p[j * layer_dim + neuron_index2] < 0) {
+	  dist_before += 1;
+	}
+	if (prune_output[j * layer_dim + neuron_index1] < epsilon && output_fail_iters_p[j * layer_dim + neuron_index2] < 0) {
+	  dist_after += 1;
+	}
+      }
+      Blob<Dtype> tmp_weight;
+      Blob<Dtype> tmp_bias;
+      // switch the neuron
+      if (dist_after < dist_before) {
+	tmp_weight.Reshape(1, 1, 1, input_layer_dim);
+	// input
+	caffe_copy(input_layer_dim, input_weight_blob->cpu_data() + neuron_index1 * input_layer_dim,
+		   tmp_weight.mutable_cpu_data());
+	caffe_copy(input_layer_dim, input_weight_blob->cpu_data() + neuron_index2 * input_layer_dim,
+		   input_weight_blob->mutable_cpu_data() + neuron_index1 * input_layer_dim);
+	caffe_copy(input_layer_dim, tmp_weight.cpu_data(),
+		   input_weight_blob->mutable_cpu_data() + neuron_index2 * input_layer_dim);
+	caffe_copy(input_layer_dim, input_weight_blob->cpu_diff() + neuron_index1 * input_layer_dim,
+		   tmp_weight.mutable_cpu_diff());
+	caffe_copy(input_layer_dim, input_weight_blob->cpu_diff() + neuron_index2 * input_layer_dim,
+		   input_weight_blob->mutable_cpu_diff() + neuron_index1 * input_layer_dim);
+	caffe_copy(input_layer_dim, tmp_weight.cpu_diff(),
+		   input_weight_blob->mutable_cpu_diff() + neuron_index2 * input_layer_dim);
+	
+	Dtype tmp = input_bias_blob->cpu_data()[neuron_index1];
+	input_bias_blob->mutable_cpu_data()[neuron_index1] = input_bias_blob->cpu_data()[neuron_index2];
+	input_bias_blob->mutable_cpu_data()[neuron_index2] = tmp;
+	tmp = input_bias_blob->cpu_diff()[neuron_index1];
+	input_bias_blob->mutable_cpu_diff()[neuron_index1] = input_bias_blob->cpu_diff()[neuron_index2];
+	input_bias_blob->mutable_cpu_diff()[neuron_index2] = tmp;
+
+	// output
+	for (int k = 0; k < output_layer_dim; k++) {
+	  Dtype tmp = output_weight_blob->cpu_data()[k * layer_dim + neuron_index1];
+	  output_weight_blob->mutable_cpu_data()[k * layer_dim + neuron_index1] = output_weight_blob->cpu_data()[k * layer_dim + neuron_index2];
+	  output_weight_blob->mutable_cpu_data()[k * layer_dim + neuron_index2] = tmp;
+	  tmp = output_weight_blob->cpu_diff()[k * layer_dim + neuron_index1];
+	  output_weight_blob->mutable_cpu_diff()[k * layer_dim + neuron_index1] = output_weight_blob->cpu_diff()[k * layer_dim + neuron_index2];
+	  output_weight_blob->mutable_cpu_diff()[k * layer_dim + neuron_index2] = tmp;
+	}
+      }
+    }
+  }
+
   INSTANTIATE_CLASS(FailureStrategy);
   INSTANTIATE_CLASS(ThresholdFailureStrategy);
   INSTANTIATE_CLASS(RemappingFailureStrategy);
+  INSTANTIATE_CLASS(GeneticFailureStrategy);
 } // namespace caffe

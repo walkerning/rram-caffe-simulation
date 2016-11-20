@@ -38,7 +38,7 @@ for key, value in net.params.iteritems():
         np.copyto(weights, flatten_data.reshape(weights.shape))
         fc_weights.append(weights)
 
-net.save(output_file)
+# net.save(output_file)
 
 with open(output_file, "w") as wf:
     for i in range(1, len(fc_weights)):

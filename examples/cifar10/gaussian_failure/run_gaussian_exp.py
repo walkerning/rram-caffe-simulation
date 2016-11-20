@@ -12,6 +12,7 @@ parser.add_argument("std", type=float)
 parser.add_argument("device_id", type=int)
 parser.add_argument("-t", "--threshold", default=-1, type=float)
 parser.add_argument("-r", "--remapping", help="<prune_order_file>[,<period>[,<start>]]", default="")
+parser.add_argument("-g", "--genetic", help="<prune_prototxt>,<prune_model>[,<switch_time>]", default="")
 parser.add_argument("--tag", help="make a tag as suffix", default="")
 parser.add_argument("--cpu", help="run on cpu", action="store_true")
 parser.add_argument("--prob", help="probability percentage for +-1 (integer: 0 ~ 100)", type=int, default=-1)
@@ -24,6 +25,7 @@ std = args.std
 device_id = args.device_id
 strategy_suffix="_threshold_{}".format(args.threshold) if args.threshold > 0 else ""
 strategy_suffix+="_remapping_{}".format(args.remapping.split(",")[0]) if args.remapping else ""
+strategy_suffix+="_genetic_{}".format(args.genetic) if args.genetic else ""
 
 # handle some import/binary paths
 here = os.path.dirname(os.path.abspath(__file__))
@@ -76,6 +78,16 @@ if args.remapping:
         strategy_param.period = int(stra[1])
     if len(stra) > 2:
         strategy_param.start = int(stra[2])
+    message.failure_strategy.extend([strategy_param])
+
+if args.genetic:
+    stra = args.genetic.split(",")
+    strategy_param = caffe_pb2.FailureStrategyParameter(type="genetic",
+                                                        prune_net_file=stra[0])
+    strategy_param.prune_model_file = stra[1]
+    
+    if len(stra) > 2:
+        strategy_param.switch_time = int(stra[2])
     message.failure_strategy.extend([strategy_param])
 
 if args.cpu:

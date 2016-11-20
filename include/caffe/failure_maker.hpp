@@ -62,6 +62,10 @@ namespace caffe {
     virtual void Fail_gpu(int iter);
 #endif
 
+    vector<Blob<Dtype>* >& fail_iterations() {
+      return fail_iterations_;
+    }
+
     virtual void Fail_cpu(int iter);
     virtual ~GaussianFailureMaker() {
       for (int i = 0; i < fail_iterations_.size(); i++) {
