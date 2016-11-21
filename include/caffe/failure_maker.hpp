@@ -36,6 +36,22 @@ namespace caffe {
 	break;
       case Caffe::GPU:
 	Fail_gpu(iter);
+	int broken = 0;
+	int whole = 0;
+	// test how many cell is broken
+	for (int i = 0; i < fail_iterations_.size(); i++) {
+	  // remain iterations
+	  const Dtype* iters_p = fail_iterations_[i]->cpu_data();
+	  whole += fail_iterations_[i]->count();
+	  // the fail value of every failed cell, use cpu_diff to store these info
+	  int count = fail_iterations_[i]->count();
+	  for (int j = 0; j < count; j++) {
+	    if (iters_p[j] <= 0) {
+	      broken += 1;
+	    }
+	  }
+	}
+	//LOG(INFO) << "broken: " << Dtype(broken)/whole;
 	break;
       }
       return;
@@ -49,6 +65,7 @@ namespace caffe {
   protected:
     FailurePatternParameter param_;
     shared_ptr<Net<Dtype> > net_;
+    vector<Blob<Dtype>* > fail_iterations_;
   };
 
   template <typename Dtype>
@@ -74,8 +91,7 @@ namespace caffe {
     }
 
   private:
-    vector<Blob<Dtype>* > fail_iterations_;
-
+    using FailureMaker<Dtype>::fail_iterations_;
     using FailureMaker<Dtype>::param_;
   };
 

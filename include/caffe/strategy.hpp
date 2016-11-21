@@ -173,6 +173,8 @@ namespace caffe {
     using FailureStrategy<Dtype>::solver_;
 
   private:
+    int CalculateOverallDist();
+
     int switch_time_;
     int period_;
     int start_;

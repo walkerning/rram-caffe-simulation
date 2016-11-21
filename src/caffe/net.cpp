@@ -480,6 +480,7 @@ void Net<Dtype>::AppendParam(const NetParameter& param, const int layer_id,
     const int learnable_param_id = learnable_params_.size();
     learnable_params_.push_back(params_[net_param_id].get());
     //failure_learnable_params_.push_back(params_[net_param_id].get());
+    //failure_learnable_layer_ids_.push_back(layer_id);
     if (strcmp(layers_[layer_id]->type(), "InnerProduct") == 0) {
       // only handle innerproduct in failure
       LOG(INFO) << "add inner product param " << layer_id;

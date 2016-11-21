@@ -137,6 +137,25 @@ namespace caffe {
   }
 
   template <typename Dtype>
+  int GeneticFailureStrategy<Dtype>::CalculateOverallDist() {
+    Dtype epsilon = 1e-20;
+    const vector<Blob<Dtype>* >& failure_params = dynamic_cast<GaussianFailureMaker<Dtype>* >(fmaker_.get())->fail_iterations();
+    const vector<Blob<Dtype>* >& prune_params = prune_net_->failure_learnable_params();
+    int dist = 0;
+    for (int i = 0; i < failure_params.size(); i++) {
+      const Dtype* failure_param = failure_params[i]->cpu_data();
+      const Dtype* prune_param = prune_params[i]->cpu_data();
+      for (int j = 0; j < failure_params[i]->count(); j++) {
+	if (prune_param[j] < epsilon && failure_param[j] < 0) {
+	  // this weight cannot be prune but fail
+	  dist += 1;
+	}	
+      }
+    }
+    return dist;
+  }
+
+  template <typename Dtype>
   void GeneticFailureStrategy<Dtype>::Apply() {
     ++times_;
     if (times_ < start_ || (times_ - start_) % period_ != 0) {
@@ -144,6 +163,8 @@ namespace caffe {
     }
     Dtype epsilon = 1e-20;
     int size = net_->fc_params_ids_.size();
+    // calculate the cost before switching
+    int before_dist = CalculateOverallDist();
     for (int i = 0; i < switch_time_; ) {
       // random select two neurons
       int layer_index = rand() % (size - 1) + 1;
@@ -171,8 +192,8 @@ namespace caffe {
       const Dtype* output_fail_iters_p = failure_blob->cpu_data();
       //const Dtype* output_fail_values_p = failure_blob->cpu_data()
 
-      const Dtype* prune_input = prune_net_->layers()[prune_net_->failure_learnable_layer_ids()[prune_net_->fc_params_ids_[layer_index-1]]]->blobs()[0]->cpu_data();
-      const Dtype* prune_output = prune_net_->layers()[prune_net_->failure_learnable_layer_ids()[prune_net_->fc_params_ids_[layer_index]]]->blobs()[0]->cpu_data();
+      Dtype* prune_input = prune_net_->layers()[prune_net_->failure_learnable_layer_ids()[prune_net_->fc_params_ids_[layer_index-1]]]->blobs()[0]->mutable_cpu_data();
+      Dtype* prune_output = prune_net_->layers()[prune_net_->failure_learnable_layer_ids()[prune_net_->fc_params_ids_[layer_index]]]->blobs()[0]->mutable_cpu_data();
       int dist_before = 0;
       int dist_after = 0;
       // calculate the gain of switching these two neurons (assume ...)
@@ -209,6 +230,7 @@ namespace caffe {
       Blob<Dtype> tmp_weight;
       Blob<Dtype> tmp_bias;
       // switch the neuron
+      //LOG(INFO) << "dist_before: " << dist_before << "dist_after: " << dist_after;
       if (dist_after < dist_before) {
 	tmp_weight.Reshape(1, 1, 1, input_layer_dim);
 	// input
@@ -232,6 +254,18 @@ namespace caffe {
 	input_bias_blob->mutable_cpu_diff()[neuron_index1] = input_bias_blob->cpu_diff()[neuron_index2];
 	input_bias_blob->mutable_cpu_diff()[neuron_index2] = tmp;
 
+	// prune input
+	caffe_copy(input_layer_dim, prune_input + neuron_index1 * input_layer_dim,
+		   tmp_weight.mutable_cpu_data());
+	caffe_copy(input_layer_dim, prune_input + neuron_index2 * input_layer_dim,
+		   prune_input + neuron_index1 * input_layer_dim);
+	caffe_copy(input_layer_dim, tmp_weight.cpu_data(),
+		   prune_input + neuron_index2 * input_layer_dim);
+	
+	tmp = prune_input[neuron_index1];
+	prune_input[neuron_index1] = prune_input[neuron_index2];
+	prune_input[neuron_index2] = tmp;
+
 	// output
 	for (int k = 0; k < output_layer_dim; k++) {
 	  Dtype tmp = output_weight_blob->cpu_data()[k * layer_dim + neuron_index1];
@@ -241,8 +275,16 @@ namespace caffe {
 	  output_weight_blob->mutable_cpu_diff()[k * layer_dim + neuron_index1] = output_weight_blob->cpu_diff()[k * layer_dim + neuron_index2];
 	  output_weight_blob->mutable_cpu_diff()[k * layer_dim + neuron_index2] = tmp;
 	}
+	// prune output
+	for (int k = 0; k < output_layer_dim; k++) {
+	  Dtype tmp = prune_output[k * layer_dim + neuron_index1];
+	  prune_output[k * layer_dim + neuron_index1] = prune_output[k * layer_dim + neuron_index2];
+	  prune_output[k * layer_dim + neuron_index2] = tmp;
+	}
       }
     }
+    int after_dist = CalculateOverallDist();
+    LOG(INFO) << "dist: before: " << before_dist << " after: " << after_dist;
   }
 
   INSTANTIATE_CLASS(FailureStrategy);

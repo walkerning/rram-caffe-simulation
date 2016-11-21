@@ -60,7 +60,6 @@ namespace caffe {
       // the fail value of every failed cell, use cpu_diff to store these info
       const Dtype* value_p = fail_iterations_[i]->cpu_diff();
       int count = fail_iterations_[i]->count();
-
       for (int j = 0; j < count; j++) {
 	if (iters_p[j] <= 0) {
 	  // this cell is broken

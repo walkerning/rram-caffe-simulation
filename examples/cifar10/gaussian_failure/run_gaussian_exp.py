@@ -88,6 +88,10 @@ if args.genetic:
     
     if len(stra) > 2:
         strategy_param.switch_time = int(stra[2])
+    if len(stra) > 3:
+        strategy_param.period = int(stra[3])
+    if len(stra) > 4:
+        strategy_param.start = int(stra[4])
     message.failure_strategy.extend([strategy_param])
 
 if args.cpu:
